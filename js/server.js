@@ -129,6 +129,74 @@ async function copyAddress(idx, btn) {
     }
 }
 
+// ---------- 状态查询：mcsrvstat.us 与 mcstatus.io 交叉验证 ----------
+const API_TIMEOUT = 8000;
+
+function fetchWithTimeout(url, ms) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms);
+    return fetch(url, { signal: ctl.signal }).finally(() => clearTimeout(timer));
+}
+
+function normalizeIcon(icon) {
+    if (!icon) return "";
+    return icon.startsWith("data:") ? icon : `data:image/png;base64,${icon}`;
+}
+
+// api.mcsrvstat.us/3/ 的响应
+function parseMcsrvstat(d) {
+    if (!d?.online) return null;
+    return {
+        playersOnline: d.players?.online ?? 0,
+        playersMax: d.players?.max ?? 0,
+        players: (d.players?.list || [])
+        .map(n => (typeof n === "string" ? n : n?.name))
+        .filter(Boolean),
+        motdHtml: d.motd?.html?.length ? d.motd.html.join("<br>") : "",
+        motdText: d.motd?.clean?.length ? d.motd.clean.join("\n") : "",
+        icon: normalizeIcon(d.icon),
+    };
+}
+
+// api.mcstatus.io/v2/status/java/ 的响应
+function parseMcstatusIo(d) {
+    if (!d?.online) return null;
+    return {
+        playersOnline: d.players?.online ?? 0,
+        playersMax: d.players?.max ?? 0,
+        players: (d.players?.list || [])
+        .map(n => (typeof n === "string" ? n : (n?.name_clean || n?.name_raw)))
+        .filter(Boolean),
+        motdHtml: d.motd?.html || "",
+        motdText: d.motd?.clean || "",
+        icon: normalizeIcon(d.icon),
+    };
+}
+
+async function fetchOne(url, parse) {
+    const res = await fetchWithTimeout(url, API_TIMEOUT);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return parse(await res.json());
+}
+
+// 两个 API 并行请求：任一返回在线就采用它；只有两个都请求失败才算「查询失败」
+async function queryServer(addr) {
+    const host = encodeURIComponent(addr);
+    const settled = await Promise.allSettled([
+        fetchOne(`https://api.mcsrvstat.us/3/${host}`, parseMcsrvstat),
+        fetchOne(`https://api.mcstatus.io/v2/status/java/${host}`, parseMcstatusIo),
+    ]);
+
+    const responded = settled
+    .filter(s => s.status === "fulfilled")
+    .map(s => s.value);
+    const online = responded.find(Boolean);
+
+    if (online) return { online: true, data: online };
+    if (!responded.length) return { online: false, failed: true };  // 两个 API 都没响应
+    return { online: false, failed: false };                        // 有响应，但服务器离线
+}
+
 async function updateMCStatus(idx) {
     const card = document.querySelector(`.mc-card[data-idx="${idx}"]`);
     if (!card) return;
@@ -142,64 +210,55 @@ async function updateMCStatus(idx) {
     const icon = card.querySelector(".mc-icon");
     const motd = card.querySelector(".mc-motd");
 
-    try {
-        const res = await fetch(`https://api.mcsrvstat.us/3/${encodeURIComponent(addr)}`);
-        const data = await res.json();
+    const result = await queryServer(addr);
 
-        if (data.online) {
-            card.classList.remove("offline");
-            dot.style.color = "#4caf50";
-            players.innerHTML = `<b>${data.players.online}</b> / ${data.players.max} 人`;
+    if (result.online) {
+        const d = result.data;
 
-            const list = data.players?.list || [];
-            if (list.length) {
-                const MAX = 6;
-                const names = list.map(n => n.name || n);
-                const shown = names.slice(0, MAX).join("、");
-                const more = names.length > MAX ? ` +${names.length - MAX}` : "";
-                playersList.textContent = `👥 ${shown}${more}`;
-                playersList.style.display = "block";
-                playersList.title = names.join("\n");
-            } else {
-                playersList.textContent = "";
-                playersList.style.display = "none";
-                playersList.removeAttribute("title");
-            }
+        card.classList.remove("offline");
+        dot.style.color = "#4caf50";
+        players.innerHTML = `<b>${d.playersOnline}</b> / ${d.playersMax} 人`;
 
-            if (data.icon) {
-                icon.src = data.icon.startsWith("data:")
-                ? data.icon
-                : `data:image/png;base64,${data.icon}`;
-            } else {
-                icon.src = PLACEHOLDER_ICON;
-            }
-            icon.onerror = () => { icon.src = PLACEHOLDER_ICON; };
-
-            if (data.motd?.html?.length) {
-                motd.innerHTML = data.motd.html.join("<br>");
-            } else if (data.motd?.clean?.length) {
-                motd.textContent = data.motd.clean.join("\n");
-            } else {
-                motd.textContent = "（无 MOTD）";
-            }
-
+        if (d.players.length) {
+            const MAX = 6;
+            const shown = d.players.slice(0, MAX).join("、");
+            const more = d.players.length > MAX ? ` +${d.players.length - MAX}` : "";
+            playersList.textContent = `👥 ${shown}${more}`;
+            playersList.style.display = "block";
+            playersList.title = d.players.join("\n");
         } else {
-            card.classList.add("offline");
-            dot.style.color = "#f44336";
-            players.innerHTML = `<b>离线</b>`;
             playersList.textContent = "";
             playersList.style.display = "none";
-            icon.src = PLACEHOLDER_ICON;
-            motd.textContent = "服务器离线";
+            playersList.removeAttribute("title");
         }
-    } catch (e) {
-        card.classList.add("offline");
+
+        icon.src = d.icon || PLACEHOLDER_ICON;
+        icon.onerror = () => { icon.src = PLACEHOLDER_ICON; };
+
+        if (d.motdHtml) {
+            motd.innerHTML = d.motdHtml;
+        } else if (d.motdText) {
+            motd.textContent = d.motdText;
+        } else {
+            motd.textContent = "（无 MOTD）";
+        }
+        return;
+    }
+
+    // 离线 或 查询失败
+    card.classList.add("offline");
+    playersList.textContent = "";
+    playersList.style.display = "none";
+    icon.src = PLACEHOLDER_ICON;
+
+    if (result.failed) {
         dot.style.color = "#999";
         players.innerHTML = `<b>查询失败</b>`;
-        playersList.textContent = "";
-        playersList.style.display = "none";
-        icon.src = PLACEHOLDER_ICON;
         motd.textContent = "";
+    } else {
+        dot.style.color = "#f44336";
+        players.innerHTML = `<b>离线</b>`;
+        motd.textContent = "服务器离线";
     }
 }
 
