@@ -22,31 +22,51 @@ margin: 0 auto;
 }
 
 .mc-card {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 14px;
-    padding: 14px;
-    background: #1e1e1e;
-    border: 1px solid #2f2f2f;
-    border-radius: 10px;
+    padding: 16px;
+    background: linear-gradient(160deg, #242424 0%, #1a1a1a 100%);
+    border: 1px solid #303030;
+    border-radius: 12px;
+    overflow: hidden;
     transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+
+/* 左侧状态色条：在线绿、离线红 */
+.mc-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #4caf50;
+    transition: background .2s;
+}
+
+.mc-card.offline::before {
+    background: #f44336;
 }
 
 .mc-card:hover {
     border-color: #4caf50;
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
 }
 
 .mc-icon {
     width: 64px;
     height: 64px;
     image-rendering: pixelated;
-    border-radius: 6px;
+    border-radius: 8px;
     flex-shrink: 0;
     background: #2a2a2a;
     object-fit: cover;
+    border: 1px solid #383838;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
 }
 
 .mc-info {
@@ -63,7 +83,7 @@ margin: 0 auto;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding-top: 8px;
+    padding-top: 10px;
     border-top: 1px solid #2f2f2f;
 }
 
@@ -71,6 +91,7 @@ margin: 0 auto;
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 13px;
     color: #8ab4f8;
+    letter-spacing: .2px;
     flex: 1;
     min-width: 0;
     word-break: break-all;
@@ -102,6 +123,7 @@ margin: 0 auto;
 .mc-dot {
     font-size: 10px;
     line-height: 1;
+    text-shadow: 0 0 6px currentColor;
 }
 
 .mc-players {
@@ -129,21 +151,21 @@ margin: 0 auto;
 
 .mc-copy {
     flex-shrink: 0;
-    align-self: center;
-    padding: 6px 12px;
+    padding: 5px 12px;
     font-size: 12px;
-    color: #ccc;
-    background: #2a2a2a;
+    color: #bdbdbd;
+    background: #262626;
     border: 1px solid #3a3a3a;
     border-radius: 6px;
     cursor: pointer;
-    transition: all .2s;
+    transition: all .18s;
     font-family: inherit;
+    white-space: nowrap;
 }
 
 .mc-copy:hover {
     color: #fff;
-    background: #333;
+    background: #2e3a2e;
     border-color: #4caf50;
 }
 

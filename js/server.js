@@ -1,3 +1,5 @@
+import { sanitizeMotd } from "./sanitize.js";
+
 const LIST_URL = "../server-list.txt";
 
 // 从 URL 读盐，参数名用 k
@@ -139,8 +141,10 @@ function fetchWithTimeout(url, ms) {
 }
 
 function normalizeIcon(icon) {
-    if (!icon) return "";
-    return icon.startsWith("data:") ? icon : `data:image/png;base64,${icon}`;
+    if (typeof icon !== "string" || !icon) return "";
+    const src = icon.startsWith("data:") ? icon : `data:image/png;base64,${icon}`;
+    // 只接受图片 data URI，其余一律不采用
+    return /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(src) ? src : "";
 }
 
 // api.mcsrvstat.us/3/ 的响应
@@ -217,7 +221,10 @@ async function updateMCStatus(idx) {
 
         card.classList.remove("offline");
         dot.style.color = "#4caf50";
-        players.innerHTML = `<b>${d.playersOnline}</b> / ${d.playersMax} 人`;
+        // 强制转成数字，杜绝 API 返回字符串时的注入面
+        const online = Number(d.playersOnline) || 0;
+        const max = Number(d.playersMax) || 0;
+        players.innerHTML = `<b>${online}</b> / ${max} 人`;
 
         if (d.players.length) {
             const MAX = 6;
@@ -236,7 +243,7 @@ async function updateMCStatus(idx) {
         icon.onerror = () => { icon.src = PLACEHOLDER_ICON; };
 
         if (d.motdHtml) {
-            motd.innerHTML = d.motdHtml;
+            motd.replaceChildren(sanitizeMotd(d.motdHtml));
         } else if (d.motdText) {
             motd.textContent = d.motdText;
         } else {
