@@ -13,7 +13,9 @@ export function normalizePlayers(list, ...nameKeys) {
         for (const k of nameKeys) {
             const v = n[k];
             if (typeof v === "string" && v.trim()) {
-                return { name: v.trim(), uuid: typeof n.uuid === "string" ? n.uuid : "" };
+                // mcsrvstat / mcstatus.io 用 uuid，minetools 用 id
+                const uuid = [n.uuid, n.id].find(x => typeof x === "string") || "";
+                return { name: v.trim(), uuid };
             }
         }
         return null;
@@ -21,30 +23,48 @@ export function normalizePlayers(list, ...nameKeys) {
     .filter(Boolean);
 }
 
+// 合并多个来源的玩家列表，按名字去重（保留先出现的顺序）。
+// 有的 API 会过滤掉匿名玩家（uuid 全零），只取单一来源会漏人。
+export function mergePlayers(...lists) {
+    const seen = new Set();
+    const out = [];
+    for (const list of lists) {
+        for (const p of list || []) {
+            const key = String(p?.name || "").toLowerCase();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            out.push(p);
+        }
+    }
+    return out;
+}
+
 export function normalizeUuid(uuid) {
     const hex = String(uuid || "").replace(/-/g, "").toLowerCase();
     if (!/^[0-9a-f]{32}$/.test(hex)) return "";
+    if (/^0+$/.test(hex)) return "";   // 全零是匿名玩家的占位 uuid，不是真账号
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-// 优先用 uuid（玩家改名也不受影响），退而用合法用户名；都不合法就不发请求
-export function avatarUrl(p) {
-    const uuid = normalizeUuid(p.uuid);
-    if (uuid) return `https://mc-heads.net/avatar/${uuid}/32`;
-    if (/^[A-Za-z0-9_]{1,16}$/.test(p.name)) {
-        return `https://mc-heads.net/avatar/${p.name}/32`;
-    }
-    return "";
+// 头像源：按顺序尝试，前一个失败就换下一个（不同网络下能用的源不一样）
+const AVATAR_SOURCES = [
+    id => `https://minotar.net/avatar/${id}/32`,
+    id => `https://crafatar.com/avatars/${id}?size=32&overlay`,
+    id => `https://mc-heads.net/avatar/${id}/32`,
+];
+
+// 头像查询用的 id：直接用用户名。
+// 服务器返回的 uuid 往往是离线模式按名字生成的（并不是 Mojang uuid），
+// 拿它去查皮肤会查不到；用名字反而准（前提是玩家用正版名）。
+function avatarId(p) {
+    if (/^[A-Za-z0-9_]{1,16}$/.test(p.name)) return p.name;
+    return normalizeUuid(p.uuid);
 }
 
-// 主源失败时的备用源
-function backupAvatarUrl(p) {
-    const uuid = normalizeUuid(p.uuid);
-    if (uuid) return `https://crafatar.com/avatars/${uuid}?size=32&overlay`;
-    if (/^[A-Za-z0-9_]{1,16}$/.test(p.name)) {
-        return `https://crafatar.com/avatars/${p.name}?size=32&overlay`;
-    }
-    return "";
+export function avatarUrl(p, index = 0) {
+    const id = avatarId(p);
+    const source = AVATAR_SOURCES[index];
+    return id && source ? source(id) : "";
 }
 
 export function makeAvatar(p) {
@@ -52,21 +72,20 @@ export function makeAvatar(p) {
     box.className = "mc-avatar mc-avatar-fallback";
     box.textContent = (p.name || "?").charAt(0).toUpperCase();
 
-    const url = avatarUrl(p);
-    if (!url) return box;
+    if (!avatarId(p)) return box;
 
     const img = document.createElement("img");
     img.className = "mc-avatar";
     img.alt = "";
     img.decoding = "async";
-    img.dataset.src = url;   // 折叠状态不加载，展开时才赋值（已由 data-src 控时机，无需 loading=lazy）
+    let sourceIndex = 0;
+    img.dataset.src = avatarUrl(p, sourceIndex);   // 折叠状态不加载，展开时才赋值
     img.addEventListener("error", () => {
-        const backup = backupAvatarUrl(p);
-        if (img.dataset.retry !== "1" && backup) {
-            img.dataset.retry = "1";
-            img.src = backup;
+        sourceIndex += 1;
+        if (sourceIndex < AVATAR_SOURCES.length) {
+            img.src = avatarUrl(p, sourceIndex);   // 换下一个头像源
         } else if (img.isConnected) {
-            img.replaceWith(box);
+            img.replaceWith(box);                  // 全挂才退回首字母
         }
     });
     return img;

@@ -1,5 +1,5 @@
 import { sanitizeMotd } from "./sanitize.js";
-import { bindPlayersToggle, normalizePlayers, renderPlayers } from "./players.js";
+import { bindPlayersToggle, mergePlayers, normalizePlayers, renderPlayers } from "./players.js";
 
 const LIST_URL = "../server-list.txt";
 
@@ -135,8 +135,9 @@ async function copyAddress(idx, btn) {
     }
 }
 
-// ---------- 状态查询：mcsrvstat.us 与 mcstatus.io 交叉验证 ----------
-const API_TIMEOUT = 8000;
+// ---------- 状态查询：mcsrvstat / mcstatus.io / minetools 三源交叉验证 ----------
+const API_TIMEOUT = 8000;        // 常规超时
+const API_TIMEOUT_FAST = 3000;   // mcstatus.io 在部分网络会被阻断，别让它拖满 8 秒
 
 function fetchWithTimeout(url, ms) {
     const ctl = new AbortController();
@@ -149,6 +150,23 @@ function normalizeIcon(icon) {
     const src = icon.startsWith("data:") ? icon : `data:image/png;base64,${icon}`;
     // 只接受图片 data URI，其余一律不采用
     return /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(src) ? src : "";
+}
+
+// 把 "host:port" 拆开（minetools 要求分开传）；没写端口时按 25565
+function splitAddr(addr) {
+    const s = String(addr).trim();
+    const v6 = s.match(/^\[(.+)\]:(\d+)$/);
+    if (v6) return { host: v6[1], port: v6[2] };
+    const i = s.lastIndexOf(":");
+    if (i > 0 && /^\d+$/.test(s.slice(i + 1))) {
+        return { host: s.slice(0, i), port: s.slice(i + 1) };
+    }
+    return { host: s, port: "25565" };
+}
+
+// minetools 的 description 是带 § 颜色代码的纯文本：剥掉代码、保留文字
+function stripSection(text) {
+    return String(text ?? "").replace(/§[0-9a-fk-orx]/gi, "");
 }
 
 // api.mcsrvstat.us/3/ 的响应
@@ -177,28 +195,58 @@ function parseMcstatusIo(d) {
     };
 }
 
-async function fetchOne(url, parse) {
-    const res = await fetchWithTimeout(url, API_TIMEOUT);
+// api.minetools.eu/ping/<host>/<port> 的响应
+// 注意：服务器离线或域名解析失败时 HTTP 仍返回 200，只能靠 error 字段判断
+function parseMinetools(d) {
+    if (!d || typeof d !== "object" || d.error) return null;
+    const p = d.players;
+    if (!p || typeof p !== "object") return null;
+    return {
+        playersOnline: Number(p.online) || 0,
+        playersMax: Number(p.max) || 0,
+        players: normalizePlayers(p.sample, "name"),
+        motdHtml: "",                                  // minetools 只给纯文本 MOTD
+        motdText: stripSection(d.description),
+        icon: normalizeIcon(d.favicon),
+    };
+}
+
+async function fetchOne(url, parse, timeout = API_TIMEOUT) {
+    const res = await fetchWithTimeout(url, timeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return parse(await res.json());
 }
 
-// 两个 API 并行请求：任一返回在线就采用它；只有两个都请求失败才算「查询失败」
+// 三个 API 并行请求：任一返回在线就采用它；全都请求失败才算「查询失败」
 async function queryServer(addr) {
     const host = encodeURIComponent(addr);
+    const { host: rawHost, port } = splitAddr(addr);
     const settled = await Promise.allSettled([
-        fetchOne(`https://api.mcsrvstat.us/3/${host}`, parseMcsrvstat),
-        fetchOne(`https://api.mcstatus.io/v2/status/java/${host}`, parseMcstatusIo),
+        fetchOne(`https://api.mcsrvstat.us/3/${host}`, parseMcsrvstat, API_TIMEOUT),
+        fetchOne(`https://api.mcstatus.io/v2/status/java/${host}`, parseMcstatusIo, API_TIMEOUT_FAST),
+        fetchOne(`https://api.minetools.eu/ping/${encodeURIComponent(rawHost)}/${encodeURIComponent(port)}`, parseMinetools, API_TIMEOUT),
     ]);
 
     const responded = settled
     .filter(s => s.status === "fulfilled")
     .map(s => s.value);
-    const online = responded.find(Boolean);
+    const onlineResults = responded.filter(Boolean);
 
-    if (online) return { online: true, data: online };
-    if (!responded.length) return { online: false, failed: true };  // 两个 API 都没响应
-    return { online: false, failed: false };                        // 有响应，但服务器离线
+    if (!onlineResults.length) {
+        if (!responded.length) return { online: false, failed: true };  // 三个 API 都没响应
+        return { online: false, failed: false };                        // 有响应，但服务器离线
+    }
+
+    // 人数等字段以第一个在线结果为准；玩家列表则合并所有来源并按名字去重
+    // —— 有的 API 会把匿名玩家（uuid 全零）过滤掉，只取单一来源会漏人
+    const [primary, ...others] = onlineResults;
+    return {
+        online: true,
+        data: {
+            ...primary,
+            players: mergePlayers(primary.players, ...others.map(r => r.players)),
+        },
+    };
 }
 
 async function updateMCStatus(idx) {
