@@ -1,4 +1,5 @@
 import { sanitizeMotd } from "./sanitize.js";
+import { bindPlayersToggle, normalizePlayers, renderPlayers } from "./players.js";
 
 const LIST_URL = "../server-list.txt";
 
@@ -44,7 +45,8 @@ async function loadServerList() {
     }
 
     try {
-        const res = await fetch(LIST_URL);
+        // 列表会随换盐更新，禁掉缓存，避免访客拿到旧密文
+        const res = await fetch(LIST_URL, { cache: "no-store" });
         if (!res.ok) throw new Error("列表加载失败");
         const text = await res.text();
 
@@ -72,8 +74,9 @@ async function loadServerList() {
             <div class="mc-line">
             <span class="mc-dot">●</span>
             <span class="mc-players"><b>--</b> / -- 人</span>
+            <button class="mc-toggle" type="button" aria-expanded="false" hidden>玩家列表</button>
             </div>
-            <div class="mc-players-list"></div>
+            <div class="mc-players-panel" hidden></div>
             </div>
             <div class="mc-footer">
             <span class="mc-addr"></span>
@@ -81,6 +84,7 @@ async function loadServerList() {
             </div>
             `;
             card.querySelector(".mc-addr").textContent = addr;
+            bindPlayersToggle(card);
             listEl.appendChild(card);
         });
 
@@ -153,9 +157,7 @@ function parseMcsrvstat(d) {
     return {
         playersOnline: d.players?.online ?? 0,
         playersMax: d.players?.max ?? 0,
-        players: (d.players?.list || [])
-        .map(n => (typeof n === "string" ? n : n?.name))
-        .filter(Boolean),
+        players: normalizePlayers(d.players?.list, "name"),
         motdHtml: d.motd?.html?.length ? d.motd.html.join("<br>") : "",
         motdText: d.motd?.clean?.length ? d.motd.clean.join("\n") : "",
         icon: normalizeIcon(d.icon),
@@ -168,9 +170,7 @@ function parseMcstatusIo(d) {
     return {
         playersOnline: d.players?.online ?? 0,
         playersMax: d.players?.max ?? 0,
-        players: (d.players?.list || [])
-        .map(n => (typeof n === "string" ? n : (n?.name_clean || n?.name_raw)))
-        .filter(Boolean),
+        players: normalizePlayers(d.players?.list, "name_clean", "name_raw"),
         motdHtml: d.motd?.html || "",
         motdText: d.motd?.clean || "",
         icon: normalizeIcon(d.icon),
@@ -210,7 +210,6 @@ async function updateMCStatus(idx) {
 
     const dot = card.querySelector(".mc-dot");
     const players = card.querySelector(".mc-players");
-    const playersList = card.querySelector(".mc-players-list");
     const icon = card.querySelector(".mc-icon");
     const motd = card.querySelector(".mc-motd");
 
@@ -226,18 +225,7 @@ async function updateMCStatus(idx) {
         const max = Number(d.playersMax) || 0;
         players.innerHTML = `<b>${online}</b> / ${max} 人`;
 
-        if (d.players.length) {
-            const MAX = 6;
-            const shown = d.players.slice(0, MAX).join("、");
-            const more = d.players.length > MAX ? ` +${d.players.length - MAX}` : "";
-            playersList.textContent = `👥 ${shown}${more}`;
-            playersList.style.display = "block";
-            playersList.title = d.players.join("\n");
-        } else {
-            playersList.textContent = "";
-            playersList.style.display = "none";
-            playersList.removeAttribute("title");
-        }
+        renderPlayers(card, d.players);
 
         icon.src = d.icon || PLACEHOLDER_ICON;
         icon.onerror = () => { icon.src = PLACEHOLDER_ICON; };
@@ -254,8 +242,7 @@ async function updateMCStatus(idx) {
 
     // 离线 或 查询失败
     card.classList.add("offline");
-    playersList.textContent = "";
-    playersList.style.display = "none";
+    renderPlayers(card, []);
     icon.src = PLACEHOLDER_ICON;
 
     if (result.failed) {
