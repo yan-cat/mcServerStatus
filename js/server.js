@@ -73,8 +73,12 @@ async function loadServerList() {
             </div>
             <div class="mc-players-list"></div>
             </div>
-            <button class="mc-copy" title="复制服务器地址">复制</button>
+            <div class="mc-footer">
+            <span class="mc-addr"></span>
+            <button class="mc-copy" title="复制服务器地址">复制ip</button>
+            </div>
             `;
+            card.querySelector(".mc-addr").textContent = addr;
             listEl.appendChild(card);
         });
 

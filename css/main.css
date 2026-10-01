@@ -23,6 +23,7 @@ margin: 0 auto;
 
 .mc-card {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 14px;
     padding: 14px;
@@ -54,6 +55,27 @@ margin: 0 auto;
     gap: 6px;
     min-width: 0;
     flex: 1;
+}
+
+.mc-footer {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #2f2f2f;
+}
+
+.mc-addr {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    color: #8ab4f8;
+    flex: 1;
+    min-width: 0;
+    word-break: break-all;
+    user-select: all;
+    cursor: text;
 }
 
 .mc-motd {
