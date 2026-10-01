@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" shape-rendering="crispEdges">
+  <!-- 背景 -->
+  <rect x="8" y="8" width="112" height="112" rx="16" fill="#1E1E1E" stroke="#4CAF50" stroke-width="2" />
+  
+  <!-- 背景光晕 -->
+  <circle cx="64" cy="36" r="32" fill="#4CAF50" opacity="0.1" />
+  <circle cx="64" cy="100" r="20" fill="#00FF00" opacity="0.15" />
+  
+  <!-- 云服务器主体 -->
+  <rect x="40" y="16" width="48" height="16" fill="#E0E0E0" />
+  <rect x="24" y="32" width="80" height="24" fill="#F5F5F5" />
+  <rect x="32" y="56" width="64" height="16" fill="#D0D0D0" />
+  
+  <!-- 云服务器高光 -->
+  <rect x="40" y="16" width="48" height="4" fill="#FFFFFF" />
+  <rect x="24" y="32" width="80" height="4" fill="#FFFFFF" />
+  <rect x="32" y="56" width="64" height="4" fill="#E8E8E8" />
+  
+  <!-- 云服务器阴影 -->
+  <rect x="40" y="28" width="48" height="4" fill="#BDBDBD" />
+  <rect x="32" y="68" width="64" height="4" fill="#BDBDBD" />
+  
+  <!-- 网络信号条（云内） -->
+  <rect x="44" y="44" width="8" height="12" fill="#8BC34A" />
+  <rect x="56" y="36" width="8" height="20" fill="#8BC34A" />
+  <rect x="68" y="28" width="8" height="28" fill="#8BC34A" />
+  
+  <!-- 数据包点缀 -->
+  <rect x="28" y="24" width="4" height="4" fill="#4CAF50" />
+  <rect x="96" y="24" width="4" height="4" fill="#4CAF50" />
+  <rect x="20" y="44" width="4" height="4" fill="#4CAF50" />
+  <rect x="104" y="44" width="4" height="4" fill="#4CAF50" />
+  
+  <!-- 连接器（云与草方块之间） -->
+  <rect x="56" y="68" width="16" height="12" fill="#424242" />
+  <rect x="60" y="72" width="8" height="4" fill="#00FF00" />
+  
+  <!-- 投影 -->
+  <ellipse cx="64" cy="76" rx="32" ry="4" fill="#000000" opacity="0.3" />
+  
+  <!-- Minecraft 草方块 -->
+  <!-- 草方块顶部 -->
+  <rect x="32" y="80" width="64" height="16" fill="#5cb85c" />
+  <rect x="32" y="80" width="64" height="4" fill="#7ddb7d" />
+  <rect x="32" y="92" width="64" height="4" fill="#4cae4c" />
+  
+  <!-- 草方块侧面（泥土） -->
+  <rect x="32" y="96" width="64" height="16" fill="#8b5a2b" />
+  <rect x="32" y="96" width="64" height="4" fill="#9c6b3a" />
+  <rect x="32" y="108" width="64" height="4" fill="#5a3a1a" />
+  
+  <!-- 草叶细节 -->
+  <rect x="36" y="76" width="4" height="4" fill="#5cb85c" />
+  <rect x="52" y="76" width="4" height="4" fill="#5cb85c" />
+  <rect x="68" y="76" width="4" height="4" fill="#5cb85c" />
+  <rect x="84" y="76" width="4" height="4" fill="#5cb85c" />
+  
+  <!-- 在线状态对勾 -->
+  <rect x="48" y="100" width="8" height="8" fill="#00FF00" />
+  <rect x="56" y="108" width="8" height="8" fill="#00FF00" />
+  <rect x="64" y="100" width="8" height="8" fill="#00FF00" />
+  <rect x="72" y="92" width="8" height="8" fill="#00FF00" />
+  
+  <!-- 对勾阴影 -->
+  <rect x="48" y="108" width="8" height="4" fill="#000000" opacity="0.3" />
+  <rect x="56" y="116" width="8" height="4" fill="#000000" opacity="0.3" />
+  <rect x="64" y="108" width="8" height="4" fill="#000000" opacity="0.3" />
+  <rect x="72" y="100" width="8" height="4" fill="#000000" opacity="0.3" />
+  
+  <!-- 角落装饰 -->
+  <rect x="16" y="16" width="4" height="4" fill="#4CAF50" opacity="0.5" />
+  <rect x="108" y="16" width="4" height="4" fill="#4CAF50" opacity="0.5" />
+  <rect x="16" y="108" width="4" height="4" fill="#4CAF50" opacity="0.5" />
+  <rect x="108" y="108" width="4" height="4" fill="#4CAF50" opacity="0.5" />
+</svg>

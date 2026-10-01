@@ -1,0 +1,33 @@
+.title-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    padding: 14px 20px;
+    background: #000000;
+    color: #fff;
+    overflow: hidden;
+
+    /* 核心代码：让子元素横向排列 */
+    display: flex;
+    align-items: center; /* 让图片和文字在垂直方向居中对齐 */
+    gap: 12px;           /* 图片和标题之间的间距 */
+}
+
+/* 给 logo 设置个大小，防止图片过大把标题挤下去 */
+.title-bar img {
+    width: 32px;
+    height: 32px;
+    display: block;
+}
+
+/* 清除 h1 默认的外边距 */
+.title-bar h1 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}

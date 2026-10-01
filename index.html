@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Minecraft 服务器状态查询</title>
+    <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+    <script src="css/load-css.js"></script>
+    <script type="module" src="js/load-js.js"></script>
+</head>
+    <body>
+        <div id="header-placeholder"></div>
+        <main>
+        <div id="mc-list">
+            <div class="mc-loading">加载中...</div>
+        </div>
+        </main>
+        <script>
+            fetch('components/header.html')
+            .then(r => r.text())
+            .then(html => {
+                const headerPlaceholder = document.getElementById('header-placeholder');
+                if (headerPlaceholder) {
+                    // 1. 把 header 渲染进去
+                    headerPlaceholder.innerHTML = html;
+
+                    // 2. 等浏览器渲染完后，计算它的高度
+                    // 用 requestAnimationFrame 确保拿到的是最终高度
+                    requestAnimationFrame(() => {
+                        const header = headerPlaceholder.firstElementChild;
+                        if (header) {
+                            document.body.style.paddingTop = header.offsetHeight + 'px';
+                        }
+                    });
+                }
+            });
+        </script>
+    </body>
+</html>
